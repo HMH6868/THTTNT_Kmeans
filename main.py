@@ -15,9 +15,14 @@ class CustomerSegmentationApp:
     def __init__(self, master):
         self.master = master
         self.master.title("Ứng Dụng Phân Cụm Dữ Liệu Khách Hàng")
-        self.master.geometry("600x800")
+        self.master.geometry("600x950")
         self.master.config(bg="#f4f4f9")
         
+        # Mở toàn màn hình
+        self.master.state('zoomed')  # Mở ứng dụng ở chế độ toàn màn hình
+        
+        self.master.config(bg="#f4f4f9")
+
         # Dữ liệu
         self.df = None
         self.scaled_data = None
@@ -26,15 +31,20 @@ class CustomerSegmentationApp:
 
         # Tiêu đề
         title_label = tk.Label(self.master, text="Phân Tích Dữ Liệu Khách Hàng", font=("Arial", 18, "bold"), bg="#f4f4f9", fg="blue")
-        title_label.pack(pady=20)
+        title_label.pack(pady=10)
 
         # Mô tả
         desc_label = tk.Label(self.master, text="Chọn file Excel chứa dữ liệu khách hàng để phân tích", font=("Arial", 12), bg="#f4f4f9")
         desc_label.pack(pady=10)
 
+        # Nhãn hiển thị kết quả
+        self.result_label = tk.Label(self.master, text="", font=("Arial", 12, "bold"), bg="#f4f4f9", fg="blue")
+        self.result_label.pack(pady=5)
+
+
         # Các nút chức năng
         buttons = [
-            ("Import Excel", self.import_excel),
+            ("Nhập dữ liệu từ Excel", self.import_excel),
             ("Biểu đồ 2D Scatter", self.plot_2d_scatter),
             ("Biểu đồ Heatmap", self.plot_heatmap),
             ("Silhouette Score", self.plot_silhouette),
@@ -46,8 +56,8 @@ class CustomerSegmentationApp:
             ("Biểu đồ Pairplot", self.plot_pairplot),
             ("Biểu đồ Scatter Giới Tính", self.plot_scatter_by_gender),
             ("Biểu đồ Cụm K-Means", self.plot_cluster_income_vs_spending),
-            ("Xuất dữ liệu", self.export_results),
-            ("Nhập dữ liệu", self.predict_customer_type)
+            ("Xuất dữ liệu phân loại khách hàng", self.export_results),
+            ("Dự đoán loại khách hàng", self.predict_customer_type)
         ]
 
         for text, command in buttons:
@@ -84,6 +94,9 @@ class CustomerSegmentationApp:
 
             print("Dữ liệu sau khi phân cụm:")
             print(self.df.head())
+
+            file_name = file_path.split("/")[-1]  # Lấy tên file từ đường dẫn
+            self.result_label.config(text=f"Đã nhập file: {file_name}", fg="green")
         except KeyError:
             print("Dữ liệu thiếu các cột cần thiết!")
 
@@ -110,9 +123,16 @@ class CustomerSegmentationApp:
     def plot_silhouette(self):
         if self.scaled_data is None or self.clusters is None:
             print("Chưa có dữ liệu phân cụm!")
+            self.result_label.config(text="Chưa có dữ liệu phân cụm!", fg="red")
             return
+
+        # Tính toán Silhouette Score
         silhouette_avg = silhouette_score(self.scaled_data, self.clusters)
-        print(f"Silhouette Score: {silhouette_avg}")
+        result_text = f"Silhouette Score: {silhouette_avg:.2f}"
+        
+        # Hiển thị kết quả trên form
+        self.result_label.config(text=result_text, fg="green")
+
 
     def plot_tsne(self):
         if self.scaled_data is None:
@@ -194,8 +214,15 @@ class CustomerSegmentationApp:
         if self.df is None:
             print("Chưa có dữ liệu!")
             return
-        sns.pairplot(self.df, diag_kind="kde", hue='Cluster', vars=['Tuổi', 'Thu nhập cá nhân (VND)', 'Điểm chi tiêu (1-100)'])
+
+        # Chỉ chọn các cột số cần thiết
+        selected_columns = ['Tuổi', 'Thu nhập cá nhân (VND)', 'Điểm chi tiêu (1-100)']
+
+        # Tạo Pairplot không chia theo cụm
+        sns.pairplot(self.df[selected_columns], diag_kind="kde", plot_kws={'alpha': 0.7})
+        plt.suptitle('Biểu đồ Pairplot giữa các đặc trưng', y=1.02)
         plt.show()
+
 
 
     def plot_scatter_by_gender(self):
@@ -231,6 +258,10 @@ class CustomerSegmentationApp:
         columns_to_export = ["Mã khách hàng", "Giới tính", "Tuổi", "Thu nhập cá nhân (VND)", "Điểm chi tiêu (1-100)", "Phân loại"]
         data_to_export = self.df[columns_to_export]
 
+        # Sắp xếp theo thứ tự "Thấp" -> "Trung bình" -> "Tiềm năng"
+        sort_order = {"Thấp": 0, "Trung bình": 1, "Tiềm năng": 2}
+        data_to_export = data_to_export.sort_values(by="Phân loại", key=lambda x: x.map(sort_order)).reset_index(drop=True)
+
         # Mở hộp thoại lưu file
         file_path = filedialog.asksaveasfilename(
             defaultextension=".xlsx",
@@ -246,6 +277,7 @@ class CustomerSegmentationApp:
             print(f"Kết quả đã được lưu tại: {file_path}")
         except Exception as e:
             print(f"Đã xảy ra lỗi khi lưu file: {e}")
+
 
     def predict_customer_type(self):
         # Tạo cửa sổ mới để nhập dữ liệu
