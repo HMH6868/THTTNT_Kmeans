@@ -250,33 +250,65 @@ class CustomerSegmentationApp:
             print("Chưa có dữ liệu để xuất!")
             return
 
-        # Tạo nhãn cụm
-        cluster_labels = {0: "Thấp", 1: "Trung bình", 2: "Tiềm năng"}
-        self.df['Phân loại'] = self.df['Cluster'].map(cluster_labels)
+        # Tạo cửa sổ mới
+        export_window = tk.Toplevel(self.master)
+        export_window.title("Chọn Cách Xuất Dữ Liệu")
+        export_window.geometry("400x200")
+        export_window.config(bg="#f4f4f9")
 
-        # Chọn các cột cần xuất
-        columns_to_export = ["Mã khách hàng", "Giới tính", "Tuổi", "Thu nhập cá nhân (VND)", "Điểm chi tiêu (1-100)", "Phân loại"]
-        data_to_export = self.df[columns_to_export]
+        # Tiêu đề
+        title_label = tk.Label(export_window, text="Chọn cách sắp xếp dữ liệu", font=("Arial", 14, "bold"), bg="#f4f4f9", fg="blue")
+        title_label.pack(pady=20)
 
-        # Sắp xếp theo thứ tự "Thấp" -> "Trung bình" -> "Tiềm năng"
-        sort_order = {"Thấp": 0, "Trung bình": 1, "Tiềm năng": 2}
-        data_to_export = data_to_export.sort_values(by="Phân loại", key=lambda x: x.map(sort_order)).reset_index(drop=True)
+        # Hàm xử lý xuất dữ liệu
+        def process_export(sort_order):
+            # Tạo nhãn cụm
+            cluster_labels = {0: "Thấp", 1: "Trung bình", 2: "Tiềm năng"}
+            self.df['Phân loại'] = self.df['Cluster'].map(cluster_labels)
 
-        # Mở hộp thoại lưu file
-        file_path = filedialog.asksaveasfilename(
-            defaultextension=".xlsx",
-            filetypes=[("Excel files", "*.xlsx")],
-            title="Lưu file kết quả"
+            # Chọn các cột cần xuất
+            columns_to_export = ["Mã khách hàng", "Giới tính", "Tuổi", "Thu nhập cá nhân (VND)", "Điểm chi tiêu (1-100)", "Phân loại"]
+            data_to_export = self.df[columns_to_export]
+
+            # Sắp xếp theo thứ tự được chọn
+            data_to_export = data_to_export.sort_values(by="Phân loại", key=lambda x: x.map(sort_order)).reset_index(drop=True)
+
+            # Mở hộp thoại lưu file
+            file_path = filedialog.asksaveasfilename(
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx")],
+                title="Lưu file kết quả"
+            )
+            if not file_path:
+                return
+
+            # Xuất dữ liệu ra file Excel
+            try:
+                data_to_export.to_excel(file_path, index=False)
+                print(f"Kết quả đã được lưu tại: {file_path}")
+            except Exception as e:
+                print(f"Đã xảy ra lỗi khi lưu file: {e}")
+
+            # Đóng cửa sổ xuất
+            export_window.destroy()
+
+        # Nút "Thấp -> Tiềm năng"
+        low_to_high_button = ttk.Button(
+            export_window,
+            text="Thấp -> Tiềm năng",
+            command=lambda: process_export({"Thấp": 0, "Trung bình": 1, "Tiềm năng": 2}),
+            width=20
         )
-        if not file_path:
-            return
+        low_to_high_button.pack(pady=10)
 
-        # Xuất dữ liệu ra file Excel
-        try:
-            data_to_export.to_excel(file_path, index=False)
-            print(f"Kết quả đã được lưu tại: {file_path}")
-        except Exception as e:
-            print(f"Đã xảy ra lỗi khi lưu file: {e}")
+        # Nút "Tiềm năng -> Thấp"
+        high_to_low_button = ttk.Button(
+            export_window,
+            text="Tiềm năng -> Thấp",
+            command=lambda: process_export({"Tiềm năng": 0, "Trung bình": 1, "Thấp": 2}),
+            width=20
+        )
+        high_to_low_button.pack(pady=10)
 
 
     def predict_customer_type(self):
